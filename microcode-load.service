@@ -1,0 +1,14 @@
+# /etc/systemd/system/microcode-load.service
+
+[Unit]
+Description=updated microcode-load service
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+WorkingDirectory=/lib/firmware/
+ExecStart=/lib/firmware/load-intel-ucode.sh
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
