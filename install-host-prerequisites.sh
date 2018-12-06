@@ -222,7 +222,7 @@ else
     #export DOCKER_CONTENT_TRUST=1
 
     sudo mv -f /tmp/las.service  /etc/systemd/system/las.service
-    docker pull sconecuratedimages/iexec:las
+    docker pull sconecuratedimages/iexecsgx:las
     sudo systemctl daemon-reload
     sleep 2
     sudo systemctl start las.service

@@ -1,7 +1,7 @@
 version: '3.2'
 services:
     las:
-        image: sconecuratedimages/iexec:las
+        image: sconecuratedimages/iexecsgx:las
         devices:
          - "/dev/isgx"
         command: las
