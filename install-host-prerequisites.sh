@@ -1,23 +1,23 @@
 #!//bin/bash
 : '
-Access to this file is granted under the SCONE COMMERCIAL LICENSE V1.0 
+Access to this file is granted under the SCONE COMMERCIAL LICENSE V1.0
 
 Any use of this product using this file requires a commercial license from scontain UG, www.scontain.com.
 
-Permission is also granted  to use the Program for a reasonably limited period of time  (but no longer than 1 month) 
+Permission is also granted  to use the Program for a reasonably limited period of time  (but no longer than 1 month)
 for the purpose of evaluating its usefulness for a particular purpose.
 
-THERE IS NO WARRANTY FOR THIS PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING 
-THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, 
-INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. 
+THERE IS NO WARRANTY FOR THIS PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING
+THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 
-THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE DEFECTIVE, 
+THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE DEFECTIVE,
 YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
 
 IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED ON IN WRITING WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY
-MODIFY AND/OR REDISTRIBUTE THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY GENERAL, SPECIAL, 
-INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE PROGRAM INCLUDING BUT NOT LIMITED TO LOSS 
-OF DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE 
+MODIFY AND/OR REDISTRIBUTE THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY GENERAL, SPECIAL,
+INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE PROGRAM INCLUDING BUT NOT LIMITED TO LOSS
+OF DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE
 WITH ANY OTHER PROGRAMS), EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 
 Copyright (C) 2018 scontain.com
@@ -54,42 +54,41 @@ curl -fssl https://raw.githubusercontent.com/scontain/install_patched_dependenci
 verbose "..installing microcode update"
 
 installed=$(systemctl status microcode-load.service | grep "Started updated microcode-load service." | wc -l)
-if [[ $installed == "1" ]] ; then 
+if [[ $installed == "1" ]] ; then
     verbose "  microcode update already installed - skipping"
-else 
+else
     TMPDIR=$(mktemp -d)
     cd $TMPDIR
-    curl -o ucode.tgz https://downloadmirror.intel.com/28039/eng/microcode-20180807.tgz 
+    curl -o ucode.tgz https://downloadmirror.intel.com/28039/eng/microcode-20180807.tgz
     tar -xzf ucode.tgz
     sudo apt-get update
     sudo apt-get install -y intel-microcode
+    # continue even if microcode update fails - could be not possible (running in a VM for example)
     if [ -f /sys/devices/system/cpu/microcode/reload ] ; then
         if [ -d /lib/firmware ] ; then
             mkdir -p OLD
             cp -rf /lib/firmware/intel-ucode OLD
                 sudo cp -rf intel-ucode /lib/firmware
             echo "1" | sudo tee /sys/devices/system/cpu/microcode/reload
+            verbose "..enable start of new microcode on each reboot"
+
+            cat > /tmp/load-intel-ucode.sh << EOF
+#!/bin/bash
+echo "1" | sudo tee /sys/devices/system/cpu/microcode/reload
+EOF
+            sudo mv -f /tmp/load-intel-ucode.sh /lib/firmware/load-intel-ucode.sh
+            chmod a+x /lib/firmware/load-intel-ucode.sh
+
+            sudo mv -f /tmp/microcode-load.service  /etc/systemd/system/microcode-load.service
+            sudo systemctl daemon-reload
+            sudo systemctl start microcode-load.service
+            sudo systemctl enable microcode-load.service || echo "looks like microcode-load.service  is already enabled"
         else
             echo "Error: microcode directory does not exist"
         fi
     else
         echo "Error: is intel-micrcode really installed?"
     fi
-
-    verbose "..enable start of new microcode on each reboot"
-
-cat > /tmp/load-intel-ucode.sh << EOF
-#!/bin/bash
-echo "1" | sudo tee /sys/devices/system/cpu/microcode/reload
-EOF
-    sudo mv -f /tmp/load-intel-ucode.sh /lib/firmware/load-intel-ucode.sh
-    chmod a+x /lib/firmware/load-intel-ucode.sh
-
-
-    sudo mv -f /tmp/microcode-load.service  /etc/systemd/system/microcode-load.service
-    sudo systemctl daemon-reload
-    sudo systemctl start microcode-load.service
-    sudo systemctl enable microcode-load.service || echo "looks like microcode-load.service  is already enabled"
 fi
 
 verbose "..installing patched docker engine"
@@ -146,9 +145,9 @@ echo "Patched docker engine installed"
 
 verbose "..installing docker compose"
 installed=$(which docker-compose | wc -l)
-if [[ $installed == "1" ]] ; then 
+if [[ $installed == "1" ]] ; then
     verbose "  docker-compose already installed - skipping"
-else 
+else
     sudo curl -L "https://github.com/docker/compose/releases/download/1.22.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     sudo chmod +x /usr/local/bin/docker-compose
     # simple check
@@ -170,17 +169,17 @@ verbose "..installing patched SGX driver"
 
 
         rm -rf linux-sgx-driver
-        git clone https://github.com/christoffetzer/linux-sgx-driver  
+        git clone https://github.com/christoffetzer/linux-sgx-driver
 
         cd linux-sgx-driver/
         sudo apt-get update
         sudo apt-get install -y build-essential
-        make 
+        make
 
-        sudo mkdir -p "/lib/modules/"`uname -r`"/kernel/drivers/intel/sgx"    
-        sudo cp -f isgx.ko "/lib/modules/"`uname -r`"/kernel/drivers/intel/sgx"    
+        sudo mkdir -p "/lib/modules/"`uname -r`"/kernel/drivers/intel/sgx"
+        sudo cp -f isgx.ko "/lib/modules/"`uname -r`"/kernel/drivers/intel/sgx"
 
-        sudo sh -c "cat /etc/modules | grep -Fxq isgx || echo isgx >> /etc/modules"    
+        sudo sh -c "cat /etc/modules | grep -Fxq isgx || echo isgx >> /etc/modules"
         sudo /sbin/depmod
         sudo /sbin/modprobe isgx
 
@@ -215,7 +214,7 @@ fi
 
 if [[ $installed > 0 ]] ; then
     verbose "  LAS service already installed - skipping"
-else 
+else
     mkdir -p /home/ubuntu/las
     mv -f /tmp/las-docker-compose.yml /home/ubuntu/las/docker-compose.yml
 
