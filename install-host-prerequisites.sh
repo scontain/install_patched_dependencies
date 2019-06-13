@@ -187,6 +187,14 @@ verbose "..installing patched SGX driver"
 
 verbose "..ensure that we can run docker without sudo"
 
+if getent group ubuntu | grep &>/dev/null "\bubuntu\b"; then
+    verbose "  user and group ubuntu already exist"
+else
+    sudo groupadd ubuntu || verbose "  group ubuntu already exist"
+    sudo adduser --ingroup ubuntu ubuntu || verbose "  user ubuntu already exists!"
+fi
+
+USER=ubuntu
 if getent group docker | grep &>/dev/null "\b${USER}\b"; then
     todo=false
 else
@@ -215,8 +223,9 @@ fi
 if [[ $installed > 0 ]] ; then
     verbose "  LAS service already installed - skipping"
 else
-    mkdir -p /home/ubuntu/las
-    mv -f /tmp/las-docker-compose.yml /home/ubuntu/las/docker-compose.yml
+    sudo mkdir -p /home/ubuntu/las
+    sudo chown ubuntu:ubuntu /home/ubuntu/las
+    sudo mv -f /tmp/las-docker-compose.yml /home/ubuntu/las/docker-compose.yml
 
     #export DOCKER_CONTENT_TRUST=1
 
