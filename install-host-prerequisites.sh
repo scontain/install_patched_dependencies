@@ -168,7 +168,7 @@ verbose "..installing patched SGX driver"
         fi
 
 
-        rm -rf linux-sgx-driver
+        sudo rm -rf linux-sgx-driver
         git clone https://github.com/christoffetzer/linux-sgx-driver
 
         cd linux-sgx-driver/
